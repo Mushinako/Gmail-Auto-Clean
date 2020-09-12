@@ -17,4 +17,4 @@ Google Apps Script that automatically removes/archives old emails according to y
 
 ## Note
 
-You'll have to grant the script necessary permissions to read Google Sheets and edit your emails
+You'll have to grant the script necessary permissions to edit Google Sheets and edit your emails
