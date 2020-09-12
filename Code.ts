@@ -1,21 +1,22 @@
 const sheetUrl = "https://docs.google.com/spreadsheets/d/14dva-9d6e6Iiut_JGd-SVL_8druhAMerQXEqRqb1Iuk/edit?usp=sharing";
 const removalSheetName = "Removal";
 const archiveSheetName = "Archive";
+const exclude = [Session.getEffectiveUser().getEmail()];
 
 const domainColIndex = 4;   // 1-based
 
 
-function processSheet(sheet) {
-  const rules = {};
+function processSheet(sheet: GoogleAppsScript.Spreadsheet.Sheet): Record<string, number> {
+  const rules: Record<string, number> = {};
   const list = sheet.getDataRange().getValues();
-  const domains = [];
+  const domains: string[][] = [];
   for (let i = 0; i < list.length; i++) {
     const rule = list[i];
-    const email = rule[0];
+    const email: string = rule[0];
     const domain = email.split("@")[1];
     domains.push([domain]);
 
-    const days = rule[1];
+    const days: number = rule[1];
     rules[email] = days;
   }
   sheet.getRange(1, domainColIndex, domains.length).setValues(domains).setShowHyperlink(false);
@@ -23,22 +24,22 @@ function processSheet(sheet) {
 }
 
 
-function getRules() {
+function getRules(): [Record<string, number>, Record<string, number>] {
   const file = SpreadsheetApp.openByUrl(sheetUrl);
   const removalRules = processSheet(file.getSheetByName(removalSheetName));
   const archiveRules = processSheet(file.getSheetByName(archiveSheetName));
   return [removalRules, archiveRules];
 }
 
-function getDiffDays(dateEarly, dateLate) {
-  const diffMs = dateLate - dateEarly;
+function getDiffDays(dateEarly: GoogleAppsScript.Base.Date, dateLate: Date): number {
+  const diffMs = dateLate.getTime() - dateEarly.getTime();
   const diffDays = diffMs / 86400000;
   return diffDays;
 }
 
 
-function getLastEmail(emails, exclude) {
-  let email;
+function getLastEmail(emails: GoogleAppsScript.Gmail.GmailMessage[], exclude: string[]): GoogleAppsScript.Gmail.GmailMessage {
+  let email: GoogleAppsScript.Gmail.GmailMessage;
   for (email of emails.reverse()) {
     const from = email.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
     if (!exclude.includes(from)) break;
@@ -47,14 +48,14 @@ function getLastEmail(emails, exclude) {
 }
 
 
-function hasLabel(obj, labelName) {
-  const labelNames = obj.getLabels().map((label) => label.getName());
+function hasLabel(thread: GoogleAppsScript.Gmail.GmailThread, labelName: string): boolean {
+  const labelNames = thread.getLabels().map((label) => label.getName());
   const isLabeled = labelNames.includes(labelName);
   return isLabeled;
 }
 
 
-function myFunction() {
+function gmailAutoClean(): void {
   const [removalRules, archiveRules] = getRules();
 
   let removedNum = 0;
@@ -62,14 +63,10 @@ function myFunction() {
 
   const autoRemovedLabelName = "Autoremoved";
   const autoArchivedLabelName = "Autoarchived";
-  let autoRemovedLabel = GmailApp.getUserLabelByName(autoRemovedLabelName);
-  let autoArchivedLabel = GmailApp.getUserLabelByName(autoArchivedLabelName);
-  if (autoRemovedLabel === null) autoRemovedLabel = GmailApp.createLabel(autoRemovedLabelName);
-  if (autoArchivedLabel === null) autoArchivedLabel = GmailApp.createLabel(autoArchivedLabelName);
+  let autoRemovedLabel = GmailApp.getUserLabelByName(autoRemovedLabelName) ?? GmailApp.createLabel(autoRemovedLabelName);
+  let autoArchivedLabel = GmailApp.getUserLabelByName(autoArchivedLabelName) ?? GmailApp.createLabel(autoArchivedLabelName);
 
   const currDate = new Date();
-  const msToDay = 1000 * 60 * 60 * 24;
-  const exclude = [Session.getEffectiveUser().getEmail()];
 
   const threads = GmailApp.getInboxThreads();
   for (const thread of threads) {
@@ -77,7 +74,7 @@ function myFunction() {
 
     const emails = thread.getMessages();
 
-    const isArchiveLabeled = hasLabel(thread, autoArchivedLabel);
+    let isArchiveLabeled = hasLabel(thread, autoArchivedLabelName);
     const lastEmail = getLastEmail(emails, exclude);
     const lastFrom = lastEmail.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
     if (archiveRules.hasOwnProperty(lastFrom)) {
@@ -90,22 +87,19 @@ function myFunction() {
       }
       thread.moveToArchive();
       const newThread = thread.refresh();
-      Logger.log(lastFrom, "archived", diffDays, hasLabel(newThread, autoArchivedLabel));
+      Logger.log("", lastFrom, "archived", diffDays, hasLabel(newThread, autoArchivedLabelName));
       archivedNum++;
       continue;
     }
 
-    let isRemoveLabeled = hasLabel(thread, autoRemovedLabel);
+    let isRemoveLabeled = hasLabel(thread, autoRemovedLabelName);
     for (const email of emails) {
       if (email.isStarred()) continue;
       const from = email.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
       if (!removalRules.hasOwnProperty(from)) continue;
-      // Logger.log(from, "matched", from);
       const date = email.getDate();
       const diffDays = getDiffDays(date, currDate);
-      // Logger.log(from, "checked", diffDays);
       if (diffDays < removalRules[from]) continue;
-      // Logger.log(from, "checked", email.isInTrash());
       if (!isRemoveLabeled) {
         thread.addLabel(autoRemovedLabel);
         isRemoveLabeled = true;
@@ -113,10 +107,10 @@ function myFunction() {
       email.moveToTrash();
       const newThread = thread.refresh();
       const newEmail = email.refresh();
-      Logger.log(from, "removed", diffDays, hasLabel(newThread, autoRemovedLabel), newEmail.isInTrash());
+      Logger.log("", from, "removed", diffDays, hasLabel(newThread, autoRemovedLabelName), newEmail.isInTrash());
       removedNum++;
       continue;
     }
   }
-  Logger.log(archivedNum, removedNum);
+  Logger.log("", `Archived: ${archivedNum}`, `Removed: ${removedNum}`);
 }
