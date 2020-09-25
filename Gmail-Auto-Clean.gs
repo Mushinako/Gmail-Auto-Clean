@@ -1,14 +1,18 @@
 // Compiled using ts2gas 3.6.3 (TypeScript 3.9.7)
-// More detailed explanations of the inner workings can be found in `Gmail-Auto-Clean.ts`
-// Replace the URL below with the one you create
+// Url of the sheet
 var sheetUrl = "https://docs.google.com/spreadsheets/d/14dva-9d6e6Iiut_JGd-SVL_8druhAMerQXEqRqb1Iuk/edit?usp=sharing";
+// Sheet names for each removal and archiving
 var removalSheetName = "Removal";
 var archiveSheetName = "Archive";
+// Auto exclude the emails you sent. Note that this DOES NOT exclude the whole thread
 var exclude = [Session.getEffectiveUser().getEmail()];
+// Domains should be put on column D
 var domainColIndex = 4; // 1-based
+
 function processSheet(sheet) {
     var rules = {};
     var list = sheet.getDataRange().getValues();
+    // Get email, days; calculate domain
     var domains = [];
     for (var i = 0; i < list.length; i++) {
         var rule = list[i];
@@ -18,6 +22,7 @@ function processSheet(sheet) {
         var days = rule[1];
         rules[email] = days;
     }
+    // Put back all the domains as a block
     sheet.getRange(1, domainColIndex, domains.length).setValues(domains).setShowHyperlink(false);
     return rules;
 }
@@ -38,9 +43,9 @@ function getLastEmail(emails, exclude) {
         email = _a[_i];
         var from = email.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
         if (!exclude.includes(from))
-            break;
+            return email;
     }
-    return email;
+    return null;
 }
 function hasLabel(thread, labelName) {
     var labelNames = thread.getLabels().map(function (label) { return label.getName(); });
@@ -65,21 +70,23 @@ function gmailAutoClean() {
         var emails = thread.getMessages();
         var isArchiveLabeled = hasLabel(thread, autoArchivedLabelName);
         var lastEmail = getLastEmail(emails, exclude);
-        var lastFrom = lastEmail.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
-        if (archiveRules.hasOwnProperty(lastFrom)) {
-            var lastDate = lastEmail.getDate();
-            var diffDays = getDiffDays(lastDate, currDate);
-            if (diffDays < archiveRules[lastFrom])
+        if (lastEmail !== null) {
+            var lastFrom = lastEmail.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
+            if (archiveRules.hasOwnProperty(lastFrom)) {
+                var lastDate = lastEmail.getDate();
+                var diffDays = getDiffDays(lastDate, currDate);
+                if (diffDays < archiveRules[lastFrom])
+                    continue;
+                if (!isArchiveLabeled) {
+                    thread.addLabel(autoArchivedLabel);
+                    isArchiveLabeled = true;
+                }
+                thread.moveToArchive();
+                var newThread = thread.refresh();
+                Logger.log("", lastFrom, "archived", diffDays, hasLabel(newThread, autoArchivedLabelName));
+                archivedNum++;
                 continue;
-            if (!isArchiveLabeled) {
-                thread.addLabel(autoArchivedLabel);
-                isArchiveLabeled = true;
             }
-            thread.moveToArchive();
-            var newThread = thread.refresh();
-            Logger.log("", lastFrom, "archived", diffDays, hasLabel(newThread, autoArchivedLabelName));
-            archivedNum++;
-            continue;
         }
         var isRemoveLabeled = hasLabel(thread, autoRemovedLabelName);
         for (var _d = 0, emails_1 = emails; _d < emails_1.length; _d++) {
@@ -89,13 +96,10 @@ function gmailAutoClean() {
             var from = email.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
             if (!removalRules.hasOwnProperty(from))
                 continue;
-            // Logger.log(from, "matched", from);
             var date = email.getDate();
             var diffDays = getDiffDays(date, currDate);
-            // Logger.log(from, "checked", diffDays);
             if (diffDays < removalRules[from])
                 continue;
-            // Logger.log(from, "checked", email.isInTrash());
             if (!isRemoveLabeled) {
                 thread.addLabel(autoRemovedLabel);
                 isRemoveLabeled = true;
@@ -103,7 +107,7 @@ function gmailAutoClean() {
             email.moveToTrash();
             var newThread = thread.refresh();
             var newEmail = email.refresh();
-            Logger.log(from, "removed", diffDays, hasLabel(newThread, autoRemovedLabelName), newEmail.isInTrash());
+            Logger.log("", from, "removed", diffDays, hasLabel(newThread, autoRemovedLabelName), newEmail.isInTrash());
             removedNum++;
             continue;
         }

@@ -1,2 +1,3 @@
 node_modules/
-.clasp.json
+**/.clasp.json
+**/appsscript.json
