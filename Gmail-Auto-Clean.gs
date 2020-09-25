@@ -1,4 +1,6 @@
 // Compiled using ts2gas 3.6.3 (TypeScript 3.9.7)
+// More detailed explanations of the inner workings can be found in `Gmail-Auto-Clean.ts`
+// Replace the URL below with the one you create
 var sheetUrl = "https://docs.google.com/spreadsheets/d/14dva-9d6e6Iiut_JGd-SVL_8druhAMerQXEqRqb1Iuk/edit?usp=sharing";
 var removalSheetName = "Removal";
 var archiveSheetName = "Archive";
