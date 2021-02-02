@@ -1,29 +1,20 @@
 // Compiled using ts2gas 3.6.3 (TypeScript 3.9.7)
-// Url of the sheet
 var sheetUrl = "https://docs.google.com/spreadsheets/d/14dva-9d6e6Iiut_JGd-SVL_8druhAMerQXEqRqb1Iuk/edit?usp=sharing";
-// Sheet names for each removal and archiving
 var removalSheetName = "Removal";
 var archiveSheetName = "Archive";
-// Auto exclude the emails you sent. Note that this DOES NOT exclude the whole thread
+
 var exclude = [Session.getEffectiveUser().getEmail()];
-// Domains should be put on column D
-var domainColIndex = 4; // 1-based
 
 function processSheet(sheet) {
     var rules = {};
     var list = sheet.getDataRange().getValues();
-    // Get email, days; calculate domain
-    var domains = [];
+    // Get email, days
     for (var i = 0; i < list.length; i++) {
         var rule = list[i];
         var email = rule[0];
-        var domain = email.split("@")[1];
-        domains.push([domain]);
         var days = rule[1];
         rules[email] = days;
     }
-    // Put back all the domains as a block
-    sheet.getRange(1, domainColIndex, domains.length).setValues(domains).setShowHyperlink(false);
     return rules;
 }
 function getRules() {

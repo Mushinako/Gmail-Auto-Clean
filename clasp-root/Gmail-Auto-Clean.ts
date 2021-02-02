@@ -7,9 +7,6 @@ const archiveSheetName = "Archive";
 // Auto exclude the emails you sent. Note that this DOES NOT exclude the whole thread
 const exclude = [Session.getEffectiveUser().getEmail()];
 
-// Domains should be put on column D
-const domainColIndex = 4;   // 1-based
-
 /**
  * Get data from sheet and put the domains back
  * 
@@ -19,19 +16,13 @@ const domainColIndex = 4;   // 1-based
 function processSheet(sheet: GoogleAppsScript.Spreadsheet.Sheet): Record<string, number> {
   const rules: Record<string, number> = {};
   const list = sheet.getDataRange().getValues();
-  // Get email, days; calculate domain
-  const domains: string[][] = [];
+  // Get email, days
   for (let i = 0; i < list.length; i++) {
     const rule = list[i];
     const email: string = rule[0];
-    const domain = email.split("@")[1];
-    domains.push([domain]);
-
     const days: number = rule[1];
     rules[email] = days;
   }
-  // Put back all the domains as a block
-  sheet.getRange(1, domainColIndex, domains.length).setValues(domains).setShowHyperlink(false);
   return rules;
 }
 
@@ -107,12 +98,15 @@ function gmailAutoClean(): void {
 
   const threads = GmailApp.getInboxThreads();
   for (const thread of threads) {
+    // Ignore important threads
     if (thread.isImportant()) continue;
 
     const emails = thread.getMessages();
 
     let isArchiveLabeled = hasLabel(thread, autoArchivedLabelName);
     const lastEmail = getLastEmail(emails, exclude);
+    // The whole thread is archived if the last email from a non-excluded sender matches
+    //   the rules
     if (lastEmail !== null) {
       const lastFrom = lastEmail.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
       if (archiveRules.hasOwnProperty(lastFrom)) {
@@ -132,6 +126,7 @@ function gmailAutoClean(): void {
     }
 
     let isRemoveLabeled = hasLabel(thread, autoRemovedLabelName);
+    // Each email is checked against the rule and deleted individually
     for (const email of emails) {
       if (email.isStarred()) continue;
       const from = email.getFrom().replace(/^.+<([^>]+)>.*$/, "$1");
