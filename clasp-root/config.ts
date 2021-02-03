@@ -26,3 +26,10 @@ const oldThreadsArchiveStrict = false;
 // If `true`, the script won't delete an email if any email in the same thread is out of time range
 // If `false`, the script only checks whether the email is within the time range and doesn't consult time of other emails in the same thread
 const oldThreadsRemoveStrict = false;
+
+// Gmail thread read limit
+const threadLimit = 500;
+// Gmail runtime limit in seconds
+const timeLimit = 360;
+// Which thread to start from. Useful when runtime limit is reached to continue from preiously stopped thread
+const start = 0;

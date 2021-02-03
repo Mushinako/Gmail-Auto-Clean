@@ -6,6 +6,11 @@ const autoArchivedLabelName = "Autoarchived";
  * Main function
  */
 async function gmailAutoClean(): Promise<void> {
+    // Current time for comparison
+    const currentTime = (new Date()).getTime();
+    // 10-second grace period
+    const timeLimitMillisecondWithGrace = timeLimit * 1000 - 10000;
+
     // Get rules
     const [removalRules, archiveRules] = parseWorkbook();
 
@@ -18,9 +23,6 @@ async function gmailAutoClean(): Promise<void> {
     let removedEmailCount = 0;
     let archivedThreadCount = 0;
     let archivedEmailCount = 0;
-
-    // Current datetime for comparison
-    const currentDate = new Date();
 
     // Logs
     const logs: string[] = [];
@@ -75,7 +77,7 @@ async function gmailAutoClean(): Promise<void> {
             let allOldThread = true;
             let anyOldThread = false;
             for (const email of emails) {
-                if (dayDiff(email.getDate(), currentDate) <= oldThreadsDateDiffLimit) {
+                if (dayDiff(email.getDate(), currentTime) <= oldThreadsDateDiffLimit) {
                     allOldThread = false;
                 } else {
                     anyOldThread = true;
@@ -117,7 +119,7 @@ async function gmailAutoClean(): Promise<void> {
             // Check if thread should be archived; that is, whether the sender has a corresponding rule and the email is out of date
             const from = getFromAddress(email);
             if (archiveRules.hasOwnProperty(from)) {
-                const diff = dayDiff(email.getDate(), currentDate);
+                const diff = dayDiff(email.getDate(), currentTime);
                 if (diff >= archiveRules[from]) {
                     badFroms.push([from, diff]);
                     shouldBeArchived = true;
@@ -135,6 +137,8 @@ async function gmailAutoClean(): Promise<void> {
             logs.push(`Thread "${thread.getFirstMessageSubject()}" at ${thread.getLastMessageDate()} archived (${badFroms})`)
             return thread.getMessageCount();
         }
+
+        return 0;
     }
 
     /**
@@ -158,7 +162,7 @@ async function gmailAutoClean(): Promise<void> {
                 // If one of the emails do not need to be deleted, exit immediately due to strict
                 const from = getFromAddress(email);
                 if (!removalRules.hasOwnProperty(from)) return 0;
-                const diff = dayDiff(email.getDate(), currentDate);
+                const diff = dayDiff(email.getDate(), currentTime);
                 if (diff < removalRules[from]) return 0;
 
                 badFroms.push([from, diff]);
@@ -178,7 +182,8 @@ async function gmailAutoClean(): Promise<void> {
                 // Check if email should be deleted; that is, whether its the sender has a corresponding rule and the email is out of date
                 const from = getFromAddress(email);
                 if (removalRules.hasOwnProperty(from)) {
-                    const diff = dayDiff(email.getDate(), currentDate);
+                    const date = email.getDate();
+                    const diff = dayDiff(date, currentTime);
                     if (diff >= removalRules[from]) {
                         removedCount++;
                         email.moveToTrash();
@@ -194,7 +199,20 @@ async function gmailAutoClean(): Promise<void> {
         }
     }
 
-    for (const thread of GmailApp.getInboxThreads()) {
+    const threads: GoogleAppsScript.Gmail.GmailThread[] = [];
+    for (let i = 0; ; i += threadLimit) {
+        const threadSection = GmailApp.getInboxThreads(i, threadLimit);
+        threads.push(...threadSection);
+
+        // Reached end of threads
+        if (threadSection.length < threadLimit) break;
+    }
+    Logger.log(`Got ${threads.length} threads`);
+
+    let threadCounter = start;
+    for (; threadCounter < threads.length; threadCounter++) {
+        if ((new Date()).getTime() - currentTime >= timeLimitMillisecondWithGrace) break;
+        const thread = threads[threadCounter];
         // Ignore important threads
         if (thread.isImportant()) continue;
 
@@ -218,6 +236,9 @@ async function gmailAutoClean(): Promise<void> {
         }
     }
 
+    if (threadCounter < threads.length) {
+        Logger.log(`Timeout reached at thread #${threadCounter}`);
+    }
     Logger.log(`Archived ${archivedEmailCount} emails from ${archivedThreadCount} threads\nRemoved ${removedEmailCount} emails from ${removedThreadCount} threads`);
 
     for (const log of logs) {
