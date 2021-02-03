@@ -6,7 +6,7 @@ Google Apps Script that automatically removes/archives old emails based on sende
 
 ### Making a Copy of Google Apps Script Project
 
-(Easier to deploy)
+(Easier for one-time deployment)
 
 1. Create a new Google Sheets workbook
 2. Make sure that you have 2 sheets in the workbook. One for removals, and one for archiving
@@ -21,7 +21,7 @@ Google Apps Script that automatically removes/archives old emails based on sende
 
 ### Deploying from This Source
 
-(Easier to edit TypeScript source)
+(Easier for TypeScript source modification and future updates)
 
 1. Clone this project
 2. Run `npm install` to install all the dependencies listed in `package.json`
