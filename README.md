@@ -37,7 +37,7 @@ Google Apps Script that automatically removes/archives old emails based on sende
 10. Edit `clasp-root/config.ts` to your liking
 11. Locate the `clasp` binary installed via `npm`, which is usually located in `./node_modules/.bin/`
 12. Run `./node_modules/.bin/clasp login` with appropriate path. Log into Google
-13. Run `./node_modules/.bin/clasp push`
+13. Run `./node_modules/.bin/clasp push`, or `./node_modules/.bin/clasp push --watch` if you intend to edit the code and have it update in real time
 14. Go back to the project webpage and refresh
 15. Navigate to `gmailAutoClean.gs`, and click `Run`
 16. Setup **Triggers** (on the left) if you want to
