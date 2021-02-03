@@ -132,7 +132,7 @@ async function gmailAutoClean(): Promise<void> {
         if (shouldBeArchived) {
             thread.addLabel(autoArchivedLabel);
             thread.moveToArchive();
-            logs.push(`Thread "${thread.getFirstMessageSubject()}" archived (${badFroms})`)
+            logs.push(`Thread "${thread.getFirstMessageSubject()}" at ${thread.getLastMessageDate()} archived (${badFroms})`)
             return thread.getMessageCount();
         }
     }
@@ -166,7 +166,7 @@ async function gmailAutoClean(): Promise<void> {
 
             thread.addLabel(autoRemovedLabel);
             thread.moveToTrash();
-            logs.push(`Thread "${thread.getFirstMessageSubject()}" removed (${badFroms})`)
+            logs.push(`Thread "${thread.getFirstMessageSubject()}" at ${thread.getLastMessageDate()} removed (${badFroms})`)
             return thread.getMessageCount();
         } else {
             let removedCount = 0;
@@ -182,7 +182,7 @@ async function gmailAutoClean(): Promise<void> {
                     if (diff >= removalRules[from]) {
                         removedCount++;
                         email.moveToTrash();
-                        logs.push(`Email "${email.getSubject()}" removed ${[from, diff]}`);
+                        logs.push(`Email "${email.getSubject()}" at ${date} removed ${[from, diff]}`);
                     }
                 }
             }
